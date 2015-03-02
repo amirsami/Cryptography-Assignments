@@ -1,0 +1,70 @@
+Answer:
+    This question is beginning to see, feel quite hard, but truly careful analysis you know the difficulty of solving the problem is not too large, carefully padding oracle attack the principle can easily crack the ciphertext.
+    First a brief description of the so-called padding attack. For a CBC AES encrypted data, Because AES is block cipher keyword, encryption must meet the plaintext (in terms of bit) can be divisible by 128, under normal circumstances, however, the ciphertext are less may be an integer multiple of 128, in order to resolve this problem. , padding ideological.
+    The principle of the padding, a block behind the missing bit, then fill in the behind-digit number on the number of missing. Example, we want to padding of a 4bytes data block, if the data itself is only 1byte (such as 8A), and then fill in the back three becomes 8A030303. The data itself 2byte (such as for 4FFF), then in the back filled two 02 becomes 4FFF0202. If the data is just as 4byte (4F3E2D1C), then in the back and on 4byte 04 shall 4F3E2D1C 04040404.
+    So filling itself without any problems, but because of some program when the detection padding error return an error, incorrect return another error when decoding a padding oracle attack.
+    CBC's principle is that, if there are 4 block data, the first block, of course is the initialization vector IV, the second block of ciphertext c [0], followed by c [1], c [2] , c [3]. In this case:
+m [0] = IV xor Dec (k, c [0])
+m [1] = c [0] xor Dec (k, c [1])
+m [2] = c [1] xor Dec (k, c [2])
+m [3] = c [2] xor Dec (k, c [3])
+ 
+padding oracle fundamental is choosing ciphertext attack, we construct a ciphertext:
+IV '= IV xor g xor 0000 ... 0001, c [0]' = c [0]
+In this case, if the server returns padding error g does not m [0] is the last one, will take to FF g from 00, if m [0] A is equal to g, then there is M [0] = IV 'xor Dec (k, c [0]) = IV xor g xor 0000 ... 0001 xor Dec (k, c [0]) =???? ... 01, i.e. padding is correct, but the decryption incorrect . So we guess the m [0] the last one; then, we guess m [0] second g:
+IV '= IV xor g xor 0000 ... 000202, c [0]' = c [0]
+Loop guess, ultimately all guess the plaintext. And algorithm complexity of this attack is 16 * 16 * block = 256 * 32, far less than the complexity of 2 ^ 128 guesses key effective attack.
+ 
+Answer:
+    We first read the title to log into the program:
+ public static ArrayList <String> ReadFile () {
+  File file = new File (FileDir);
+  try {
+   ArrayList <String> result = new ArrayList <String> ();
+   FileInputStream fis = new FileInputStream (file);
+   BufferedReader br = new BufferedReader (new InputStreamReader (fis));
+   String line;
+   while ((line = br.readLine ())! = null) {
+    result.add (line);
+   }
+   br.close ();
+   fis.close ();
+   result.remove (0);
+   return result;
+  } Catch (IOException e) {
+   e.printStackTrace ();
+   return null;
+  }
+ }
+Then, we put behind error 404 files singled out, this course can use the program to perform. Code is as follows:
+ public static ArrayList <String[]> getFileWithError404 (ArrayList <String> data) {
+  ArrayList <String[]> result = new ArrayList <String[]> ();
+  for (int i = 0; i <data.size (); i + +) {
+   String target = data.get (i);
+   if (target.endsWith ("404")) {
+    target = target.substring (43, 107);
+    result.add (new String [] {target.substring (0,16), target.substring (16,32),
+      target.substring (32,48), target.substring (48,64)});
+   }
+  }
+  return result;
+ }
+ 
+Then we already have guessed data listed is no 2020 repeat that set of data, and finally we got:
+dce6acb565dd951c 642b9feeebcdffc9
+afa631b5b91c019d d9dcd464e333b164
+6b2866e615fb3944 1cccbdfdfe54684d
+daffd5ebb46574cd 5bbe267664c56c93
+fa32af307095725b 4645bd2dfcd230df
+Since these are 16, that their padding is 10101010101010101010101010101010 guess. According to the principles of CBC, we know that the first group data is of no use, that is the conversion of the IV without value. From the start of the second, we each data xor 1010 ... 1010. We get D (k, c [i]) the value of the results obtained:
+BFB621A5A90C118D C9CCC474F323A174
+7B3876F605EB2954 0CDCADEDEE44785D
+CAEFC5FBA47564DD 4BAE366674D57C83
+EA22BF206085624B 5655AD3DECC220CF
+According to the formula, m [0] = IV xor D (k, c [0]), multiplet [1] = c [0] xor D (k, C [1]), and we now also obtained all the necessary data we can be calculated according to the formula in turn, the final results:
+757365723D22416C 696365223B207061
+7373776F72643D22 70616464696E6720
+6F7261636C657320 6172652064616E67
+65726F7573212209 0909090909090909
+This apparently is the ASCII encoding of the letters of the alphabet plus punctuation thing to last nine 09 as padding bits. Translation later, we get the plaintext:
+user = "Alice"; password = "padding oracles are dangerous!"
